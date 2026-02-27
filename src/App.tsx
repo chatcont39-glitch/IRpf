@@ -94,7 +94,8 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 const Sidebar = () => {
-  const location = window.location.pathname;
+  const location = useLocation();
+  const currentPath = location.pathname;
   
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -117,12 +118,12 @@ const Sidebar = () => {
             to={item.path}
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-              location === item.path 
+              currentPath === item.path 
                 ? "bg-zinc-900 text-white" 
                 : "hover:bg-zinc-900 hover:text-zinc-200"
             )}
           >
-            <item.icon size={18} className={cn(location === item.path ? "text-emerald-500" : "group-hover:text-emerald-400")} />
+            <item.icon size={18} className={cn(currentPath === item.path ? "text-emerald-500" : "group-hover:text-emerald-400")} />
             <span className="text-sm font-medium">{item.label}</span>
           </Link>
         ))}
@@ -409,6 +410,15 @@ const ClientList = () => {
     c.cpf.includes(searchTerm)
   );
 
+  const handleUpdateStatus = async (clientId: number, status: string) => {
+    await fetch(`/api/clients/${clientId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    fetch('/api/clients').then(res => res.json()).then(setClients);
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await fetch('/api/clients', {
@@ -492,8 +502,18 @@ const ClientList = () => {
               >
                 <TableCell className="font-medium">{client.name}</TableCell>
                 <TableCell className="font-mono text-zinc-500">{client.cpf}</TableCell>
-                <TableCell>
-                  <StatusBadge status={client.status} />
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <select 
+                    value={client.status}
+                    onChange={(e) => handleUpdateStatus(client.id, e.target.value)}
+                    className="text-xs border-zinc-200 rounded-md bg-white px-2 py-1 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    <option value="Pendente">Pendente</option>
+                    <option value="Em Preenchimento">Em Preenchimento</option>
+                    <option value="Entregue">Entregue</option>
+                    <option value="Malha Fina">Malha Fina</option>
+                    <option value="Processada">Processada</option>
+                  </select>
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={client.payment_status} />
@@ -1117,6 +1137,7 @@ const ClientDetail = () => {
 
 const FinanceModule = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [serviceTypes, setServiceTypes] = useState<any[]>([]);
@@ -1124,7 +1145,7 @@ const FinanceModule = () => {
   const [newService, setNewService] = useState({ name: '', base_value: '' });
   const [editingService, setEditingService] = useState<any>(null);
 
-  const defaultTab = location.pathname === '/services' ? 'services' : 'history';
+  const activeTab = location.pathname === '/services' ? 'services' : 'history';
 
   useEffect(() => {
     fetch('/api/finance/stats').then(res => res.json()).then(setStats);
@@ -1199,8 +1220,14 @@ const FinanceModule = () => {
     <div className="p-8 space-y-8">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Financeiro</h1>
-          <p className="text-zinc-500">Gestão de honorários, recebimentos e projeções.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
+            {activeTab === 'services' ? 'Serviços' : 'Financeiro'}
+          </h1>
+          <p className="text-zinc-500">
+            {activeTab === 'services' 
+              ? 'Gerencie os tipos de declarações e honorários profissionais.' 
+              : 'Gestão de honorários, recebimentos e projeções.'}
+          </p>
         </div>
         <Button onClick={exportFinancialReport} variant="outline" className="gap-2">
           <Download className="h-4 w-4" />
@@ -1253,7 +1280,11 @@ const FinanceModule = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="w-full">
+      <Tabs 
+        value={activeTab} 
+        onValueChange={(value) => navigate(value === 'services' ? '/services' : '/finance')} 
+        className="w-full"
+      >
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="history">Histórico de Recebimentos</TabsTrigger>
